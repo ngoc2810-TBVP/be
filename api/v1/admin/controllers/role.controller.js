@@ -1,10 +1,10 @@
-const Role = require("../../models/roles.model");
+const Role = require("../../models/roles.model")
 
 module.exports.index = async (req, res) => {
   try {
     const find = {
-      deleted: false,
-    };
+      deleted: false
+    }
 
     const roles = await Role.find(find);
 
@@ -12,127 +12,113 @@ module.exports.index = async (req, res) => {
       res.json({
         code: 200,
         message: "Lấy toàn bộ quyền thành công!",
-        roles: roles,
-      });
+        roles: roles
+      })
     } else {
       res.json({
         code: 400,
         message: "Không tồn tại quyền nào!",
-      });
+      })
     }
   } catch (e) {
     res.status(500).json({
       code: 500,
-      message: "Lỗi server!",
+      message: "Lỗi server!"
     });
   }
-};
+
+}
 
 module.exports.create = async (req, res) => {
   try {
-    console.log(req.body);
-    const role = new Role(req.body);
-    const data = await role.save();
+    console.log(req.body)
+    const role = new Role(req.body)
+    const data = await role.save()
 
     res.json({
       code: 200,
       message: "Tạo thành công!",
-      data: data,
-    });
+      data: data
+    })
   } catch (e) {
     res.json({
       code: 400,
-      message: "Lỗi!",
-    });
+      message: "Lỗi!"
+    })
   }
-};
+}
 
 module.exports.permissions = async (req, res) => {
   try {
     const find = {
-      deleted: false,
-    };
+      deleted: false
+    }
 
     const roles = await Role.find(find);
-    console.log("roles: ", roles);
+    console.log('roles: ', roles)
 
     if (roles) {
       res.json({
         code: 200,
         message: "Lấy toàn bộ quyền thành công!",
-        roles: roles,
-      });
+        roles: roles
+      })
     } else {
       res.json({
         code: 400,
         message: "Không tồn tại quyền nào!",
-      });
+      })
     }
   } catch (e) {
     res.status(500).json({
       code: 500,
-      message: "Lỗi server!",
+      message: "Lỗi server!"
     });
   }
-};
-
-module.exports.getById = async (req, res) => {
-  try {
-    const id = req.params.id;
-    console.log("id: ", id);
-
-    const role = await Role.findById(id);
-
-    console.log("role: ", role);
-
-    if (!role) {
-      return res.status(404).json({
-        message: "Role not found",
-      });
-    }
-
-    res.json(role);
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      message: "Server error",
-    });
-  }
-};
-
+}
 module.exports.updatePermissions = async (req, res) => {
   try {
-    const roleId = req.params.id;
-    const { title, description, permissions } = req.body;
+    const permissions = req.body; // Lưu dữ liệu từ req.body
+    console.log('data: ', permissions); // Kiểm tra dữ liệu
 
-    if (!roleId) {
-      return res.status(400).json({ code: 400, message: "Thiếu role ID" });
+    const roles = []; // Mảng để lưu các role đã cập nhật
+
+    for (const item of permissions) {
+      console.log("item: ", item);
+      console.log("item permissions: ", item.permissions);
+      console.log("item _id: ", item._id); // Sử dụng _id
+
+      // Cập nhật permissions trong cơ sở dữ liệu
+      const save = await Role.updateOne(
+        { _id: item._id }, // Sử dụng _id
+        { permissions: item.permissions }
+      );
+
+      // Kiểm tra kết quả cập nhật
+      if (save.nModified === 1) {
+        const role = await Role.findOne({ _id: item._id }); // Tìm lại nếu cần
+        roles.push(role);
+      } else {
+        console.log("No changes made for item with id:", item._id);
+      }
     }
 
-    // Tìm role theo ID
-    const role = await Role.findById(roleId);
-    if (!role) {
-      return res.status(404).json({ code: 404, message: "Role không tồn tại" });
-    }
-
-    // Cập nhật các trường nếu có
-    if (title !== undefined) role.title = title;
-    if (description !== undefined) role.description = description;
-    if (permissions !== undefined) role.permissions = permissions;
-
-    // Lưu vào DB
-    const updatedRole = await role.save();
+    console.log('roles data: ', roles);
 
     res.json({
       code: 200,
-      message: "Cập nhật nhóm quyền thành công!",
-      role: updatedRole,
+      message: "Cập nhật permission thành công!",
+      roles: roles
     });
-  } catch (err) {
-    console.error("Error updating role:", err);
+  } catch (e) {
+    console.error("Error updating permissions:", e); // Ghi lỗi để dễ theo dõi
     res.status(500).json({
       code: 500,
-      message: "Lỗi server khi cập nhật role",
+      message: "Lỗi server!"
     });
   }
 };
+
+
+
+

@@ -1,12 +1,11 @@
-const express = require("express");
+const express = require('express')
 const router = express.Router();
 
-const controller = require("../controllers/role.controller");
+const controller = require("../controllers/role.controller")
 
-// router.get("/", controller.index);
-router.post("/create", controller.create);
-router.get("/", controller.permissions);
-router.get("/:id", controller.getById);
-router.patch("/update/:id", controller.updatePermissions);
+router.get("/", controller.index)
+router.post("/create", controller.create)
+router.get("/permissions", controller.permissions)
+router.patch("/permissions/update", controller.updatePermissions)
 
 module.exports = router;

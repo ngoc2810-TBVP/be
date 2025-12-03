@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth } = require("../middlewares/auth.middleware");
-const orderController = require("../controller/order.controller");
+const orderController = require("../controllers/order.controller");
 
 // Client checkout
 router.post("/checkout", requireAuth, orderController.checkoutCart);
