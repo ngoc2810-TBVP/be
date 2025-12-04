@@ -11,7 +11,7 @@ module.exports = (app) => {
   app.use(version + "/products", productRouter);
   app.use(version + "/products-category", ProductCategoryRouter);
   app.use(version + "/users", UserRouter);
-  app.use(version + "/cart", CartRouter);
   app.use(version + "/favorite", FavoriteRouter);
   app.use(version + "/order", OrderRouter);
+  app.use(version + "/cart", CartRouter);
 };
