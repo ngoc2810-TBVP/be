@@ -71,67 +71,57 @@ module.exports.getProductsBySlugCategory = async (req, res) => {
 
 module.exports.getProductsInCategory = async (req, res) => {
   try {
-    const category = await ProductCategory.findOne({
+    // Lấy các danh mục cha
+    const categories = await ProductCategory.find({
       deleted: false,
       status: "active",
+      parent_id: "",
     });
 
-    if (category) {
-      console.log("Category found: ", category); // Log category
+    console.log("categories: ", categories);
 
-      const subCategories = await productCategoryHelper.getSubCategory(
-        category._id
-      );
-      console.log("Subcategories: ", subCategories); // Log subcategories
+    // Duyệt qua các danh mục cha và lấy danh mục con, sản phẩm của chúng
+    const categoriesWithSubCategories = await Promise.all(
+      categories.map(async (category) => {
+        // Lấy các danh mục con của mỗi danh mục cha
+        const subCategories = await productCategoryHelper.getSubCategory(
+          category._id
+        );
 
-      const subCategoryIds = subCategories.map((item) => item._id);
+        console.log("subCategories: ", subCategories);
 
-      let products = await Product.find({
-        product_category_id: { $in: [category._id, ...subCategoryIds] },
-      })
-        .sort({ position: "desc" })
-        .limit(8); // Giới hạn lấy 8 sản phẩm
-
-      let categoriesWithProducts = [
-        {
-          category: category, // Danh mục cha
-          products: products,
-        },
-      ];
-
-      for (const subCategory of subCategories) {
-        let subCategoryProducts = await Product.find({
-          product_category_id: subCategory.id,
+        // Lấy sản phẩm của danh mục cha (chỉ lấy 8 sản phẩm)
+        const products = await Product.find({
+          product_category_id: {
+            $in: [category._id, ...subCategories.map((sub) => sub._id)],
+          }, // Lấy sản phẩm từ danh mục cha và các danh mục con
           stock: { $ne: 0 },
           deleted: false,
-        }).limit(8);
+        })
+          .sort({ position: "desc" })
+          .limit(8);
 
-        categoriesWithProducts.push({
-          category: subCategory, // Danh mục con
-          products: subCategoryProducts,
-        });
-      }
+        // Gom danh mục cha và danh mục con thành một mảng
+        const mergedCategoryData = [
+          { ...category, isParentCategory: true }, // Đánh dấu danh mục cha
+          ...subCategories.map((sub) => ({ ...sub, isParentCategory: false })), // Các danh mục con
+        ];
 
-      if (categoriesWithProducts.length > 0) {
-        return res.json({
-          code: 200,
-          message: "Lấy danh mục và sản phẩm thành công!",
-          data: categoriesWithProducts,
-        });
-      } else {
-        return res.json({
-          code: 400,
-          message: "Không có sản phẩm nào trong danh mục này!",
-        });
-      }
-    } else {
-      return res.json({
-        code: 400,
-        message: "Không tồn tại danh mục này!",
-      });
-    }
+        return {
+          categories: mergedCategoryData,
+          products: products,
+        };
+      })
+    );
+
+    // Sau khi tất cả các danh mục và sản phẩm được lấy xong, trả về kết quả
+    res.json({
+      code: 200,
+      message: "Lấy danh mục và sản phẩm thành công!",
+      data: categoriesWithSubCategories,
+    });
   } catch (error) {
-    return res.json({
+    res.json({
       code: 500,
       message: error.message,
     });
