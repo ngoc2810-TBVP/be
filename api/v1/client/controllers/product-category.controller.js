@@ -19,119 +19,119 @@ module.exports.index = async (req, res) => {
 };
 
 module.exports.getProductsBySlugCategory = async (req, res) => {
-  var products = [];
-
   const slug = req.params.slug;
 
-  var listSubCategory = null;
-
-  if (slug) {
-    console.log("slug", slug);
-
-    const category = await ProductCategory.findOne({
-      slug: slug,
-      deleted: false,
-      status: "active",
+  if (!slug) {
+    return res.json({
+      code: 400,
+      message: "Slug không hợp lệ!",
     });
+  }
 
-    if (category) {
-      listSubCategory = await productCategoryHelper.getSubCategory(category.id);
-      const listSubCategoryId = listSubCategory.map((item) => item.id);
-      products = await Product.find({
-        product_category_id: { $in: [category.id, ...listSubCategoryId] },
-        stock: { $ne: 0 },
-        deleted: false,
-      }).sort({ position: "desc" });
+  const category = await ProductCategory.findOne({
+    slug: slug,
+    deleted: false,
+    status: "active",
+  });
 
-      if (products.length > 0) {
-        res.json({
-          code: 200,
-          message: "Lấy toàn bộ sản phẩm thành công!",
-          data: products,
-          pageTitle: category.title,
-        });
-      } else {
-        res.json({
-          code: 400,
-          message: "Không tồn tại sản phẩm nào!",
-          pageTitle: category.title,
-        });
-      }
-    } else {
-      res.json({
-        code: 400,
-        message: "Không tồn tại danh mục này!",
-      });
-    }
+  if (!category) {
+    return res.json({
+      code: 400,
+      message: `Không tồn tại danh mục với slug: ${slug}`,
+    });
+  }
+
+  // Lấy danh mục con
+  const listSubCategory = await productCategoryHelper.getSubCategory(
+    category.id
+  );
+  const listSubCategoryId = listSubCategory.map((item) => item.id);
+
+  let products = await Product.find({
+    product_category_id: { $in: [category.id, ...listSubCategoryId] },
+    stock: { $ne: 0 },
+    deleted: false,
+  }).sort({ position: "desc" });
+
+  if (products.length > 0) {
+    res.json({
+      code: 200,
+      message: "Lấy danh mục và sản phẩm thành công!",
+      data: products,
+      pageTitle: category.title,
+    });
+  } else {
+    res.json({
+      code: 400,
+      message: "Không tồn tại sản phẩm nào!",
+      pageTitle: category.title,
+    });
   }
 };
 
 module.exports.getProductsInCategory = async (req, res) => {
   try {
-    const categories = await ProductCategory.find({
+    const category = await ProductCategory.findOne({
       deleted: false,
       status: "active",
-      parent_id: "",
     });
 
-    // Chỉ giữ lại các trường cần thiết trong categories
-    const cleanedCategories = categories.map((category) => {
-      return {
-        _id: category._id,
-        title: category.title,
-        parent_id: category.parent_id,
-        description: category.description,
-        slug: category.slug,
-      };
-    });
+    if (category) {
+      console.log("Category found: ", category); // Log category
 
-    console.log("cleanedCategories: ", cleanedCategories);
+      const subCategories = await productCategoryHelper.getSubCategory(
+        category._id
+      );
+      console.log("Subcategories: ", subCategories); // Log subcategories
 
-    const categoriesWithSubCategories = await Promise.all(
-      cleanedCategories.map(async (category) => {
-        // Lấy các danh mục con của mỗi danh mục cha
-        const subCategories = await productCategoryHelper.getSubCategory(
-          category._id
-        );
+      const subCategoryIds = subCategories.map((item) => item._id);
 
-        console.log("subCategories: ", subCategories);
+      let products = await Product.find({
+        product_category_id: { $in: [category._id, ...subCategoryIds] },
+      })
+        .sort({ position: "desc" })
+        .limit(8); // Giới hạn lấy 8 sản phẩm
 
-        // Lấy sản phẩm của danh mục cha và các danh mục con
-        let products = await Product.find({
-          product_category_id: {
-            $in: [category._id, ...subCategories.map((sub) => sub._id)],
-          },
+      let categoriesWithProducts = [
+        {
+          category: category, // Danh mục cha
+          products: products,
+        },
+      ];
+
+      for (const subCategory of subCategories) {
+        let subCategoryProducts = await Product.find({
+          product_category_id: subCategory.id,
           stock: { $ne: 0 },
           deleted: false,
-        })
-          .sort({ position: "desc" })
-          .limit(8); // Giới hạn lấy 8 sản phẩm
+        }).limit(8);
 
-        // Gom danh mục cha và danh mục con thành một mảng
-        const mergedCategoryData = [
-          { ...category, isParentCategory: true }, // Đánh dấu danh mục cha
-          ...subCategories.map((sub) => ({ ...sub, isParentCategory: false })), // Các danh mục con
-        ];
+        categoriesWithProducts.push({
+          category: subCategory, // Danh mục con
+          products: subCategoryProducts,
+        });
+      }
 
-        if (products.length == 0) {
-          return {};
-        }
-
-        return {
-          categories: mergedCategoryData,
-          products: products,
-        };
-      })
-    );
-
-    // Trả về dữ liệu đã được xử lý
-    res.json({
-      code: 200,
-      message: "Lấy danh mục và sản phẩm thành công!",
-      data: categoriesWithSubCategories,
-    });
+      if (categoriesWithProducts.length > 0) {
+        return res.json({
+          code: 200,
+          message: "Lấy danh mục và sản phẩm thành công!",
+          data: categoriesWithProducts,
+        });
+      } else {
+        return res.json({
+          code: 400,
+          message: "Không có sản phẩm nào trong danh mục này!",
+        });
+      }
+    } else {
+      return res.json({
+        code: 400,
+        message: "Không tồn tại danh mục này!",
+      });
+    }
   } catch (error) {
-    res.json({
+    return res.json({
       code: 500,
       message: error.message,
     });
