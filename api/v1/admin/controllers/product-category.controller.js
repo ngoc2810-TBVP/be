@@ -1,41 +1,135 @@
 const ProductCategory = require("../../models/product-category.model");
 const createTreeHelper = require("../helpers/createTree");
 
+// ==========================
+// LẤY DANH SÁCH
+// ==========================
 module.exports.index = async (req, res) => {
-  let find = {
-    deleted: false
-  };
+  try {
+    const records = await ProductCategory.find({ deleted: false });
 
-  const records = await ProductCategory.find(find);
+    const newRecords = createTreeHelper.tree(records);
 
-  // Create a tree structure from the records
-  const newRecords = createTreeHelper.tree(records);
-  if (newRecords) {
-    console.log("newRecords data: ", JSON.stringify(newRecords, null, 2)); // Log formatted output for better readability
     res.json({
       code: 200,
-      message: "Lấy toàn bộ sản phẩm thành công!",
-      categories: newRecords
+      message: "Lấy toàn bộ danh mục thành công!",
+      categories: newRecords,
+    });
+  } catch (e) {
+    res.json({
+      code: 500,
+      message: "Lỗi server!",
     });
   }
 };
 
-
+// ==========================
+// TẠO MỚI
+// ==========================
 module.exports.create = async (req, res) => {
   try {
-    console.log(req.body)
-    const category = new ProductCategory(req.body)
-    const data = await category.save()
+    const category = new ProductCategory(req.body);
+    const data = await category.save();
 
     res.json({
       code: 200,
-      message: "Tạo thành công!",
-      data: data
-    })
+      message: "Tạo danh mục thành công!",
+      data: data,
+    });
   } catch (e) {
     res.json({
       code: 400,
-      message: "Lỗi!"
-    })
+      message: "Lỗi khi tạo danh mục!",
+    });
   }
-}
+};
+
+// ==========================
+// LẤY CHI TIẾT
+// ==========================
+module.exports.detail = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const item = await ProductCategory.findById(id);
+
+    if (!item || item.deleted) {
+      return res.json({
+        code: 404,
+        message: "Không tìm thấy danh mục!",
+      });
+    }
+
+    res.json({
+      code: 200,
+      message: "Lấy chi tiết danh mục thành công!",
+      data: item,
+    });
+  } catch (e) {
+    res.json({
+      code: 400,
+      message: "Lỗi!",
+    });
+  }
+};
+
+// ==========================
+// CẬP NHẬT
+// ==========================
+module.exports.update = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const item = await ProductCategory.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+
+    if (!item) {
+      return res.json({
+        code: 404,
+        message: "Không tìm thấy danh mục!",
+      });
+    }
+
+    res.json({
+      code: 200,
+      message: "Cập nhật thành công!",
+      data: item,
+    });
+  } catch (e) {
+    res.json({
+      code: 400,
+      message: "Lỗi khi cập nhật!",
+    });
+  }
+};
+
+// ==========================
+// XÓA MỀM
+// ==========================
+module.exports.delete = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const item = await ProductCategory.findById(id);
+    if (!item) {
+      return res.json({
+        code: 404,
+        message: "Không tìm thấy danh mục!",
+      });
+    }
+
+    item.deleted = true;
+    await item.save();
+
+    res.json({
+      code: 200,
+      message: "Xóa danh mục thành công!",
+    });
+  } catch (e) {
+    res.json({
+      code: 400,
+      message: "Lỗi khi xóa!",
+    });
+  }
+};
